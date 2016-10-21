@@ -8,8 +8,8 @@ deploy() {
 
 mvn deploy -DskipTests=true -Dmaven.javadoc.skip=true -B --settings .travis-deploy-settings.xml
 
-mvn javadoc:javadoc -B
+mvn javadoc:javadoc -B --settings .travis-settings.xml
 deploy apidocs
 
-mvn jacoco:report -B
+mvn jacoco:report -B --settings .travis-settings.xml
 deploy jacoco
