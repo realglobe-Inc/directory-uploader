@@ -5,6 +5,8 @@ cache:
   directories:
     - .autoconf
     - $HOME/.m2
+install:
+  - mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V --settings .travis-settings.xml
 deploy:
   provider: script
   script: ./.travis-deploy.sh
