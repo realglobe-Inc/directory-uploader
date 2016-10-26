@@ -7,9 +7,6 @@ import org.json.JSONObject;
  */
 final class TokenResponseBody {
 
-    private static final String KEY_DATA = "created";
-    private static final String KEY_TOKEN = "token";
-
     private final String token;
 
     private TokenResponseBody(final String token) {
@@ -27,7 +24,7 @@ final class TokenResponseBody {
      */
     static TokenResponseBody parse(final byte[] raw) {
         final JSONObject object = new JSONObject(new String(raw, Constants.UTF8));
-        return new TokenResponseBody(object.getJSONObject(KEY_DATA).getString(KEY_TOKEN));
+        return new TokenResponseBody(object.getJSONObject(Constants.TOKEN_RESPONSE_KEY_DATA).getString(Constants.TOKEN_RESPONSE_KEY_TOKEN));
     }
 
 }
