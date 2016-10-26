@@ -6,7 +6,7 @@
   <groupId>jp.realglobe</groupId>
   <artifactId>directory-uploader</artifactId>
   <packaging>jar</packaging>
-  <version>1.0</version>
+  <version>1.0.1</version>
   <name>directory uploader</name>
 
   <properties>
@@ -36,7 +36,7 @@
     <dependency>
       <groupId>jp.realglobe</groupId>
       <artifactId>rg-lib</artifactId>
-      <version>1.0</version>
+      <version>1.0.1</version>
     </dependency>
 
     <dependency>
