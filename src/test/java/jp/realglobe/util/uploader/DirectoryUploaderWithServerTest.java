@@ -99,7 +99,7 @@ public class DirectoryUploaderWithServerTest {
             throw e;
         }
         // サーバー起動待ち
-        Thread.sleep(500);
+        Thread.sleep(1_000);
     }
 
     private void handle(final HttpExchange exchange) throws IOException {
@@ -148,7 +148,7 @@ public class DirectoryUploaderWithServerTest {
         final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, null, 0, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
         final Future<?> future = this.executor.submit(uploader);
         // トークン取得待ち
-        Thread.sleep(500);
+        Thread.sleep(1_000);
 
         Files.write(this.targetDirectory.resolve("test"), new byte[] { (byte) 0 });
         final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
@@ -167,11 +167,11 @@ public class DirectoryUploaderWithServerTest {
         final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, Arrays.asList("jpg"), 0, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
         final Future<?> future = this.executor.submit(uploader);
         // トークン取得待ち
-        Thread.sleep(500);
+        Thread.sleep(1_000);
 
         Files.write(this.targetDirectory.resolve("test.png"), new byte[] { (byte) 0 });
         Files.write(this.targetDirectory.resolve("test.jpg"), new byte[] { (byte) 0 });
-        Thread.sleep(500);
+        Thread.sleep(1_000);
 
         final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
         Assert.assertNull(this.requestQueue.poll());
@@ -190,11 +190,11 @@ public class DirectoryUploaderWithServerTest {
         final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, null, 2, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
         final Future<?> future = this.executor.submit(uploader);
         // トークン取得待ち
-        Thread.sleep(500);
+        Thread.sleep(1_000);
 
         Files.write(this.targetDirectory.resolve("test0"), new byte[] { (byte) 0 });
         Files.write(this.targetDirectory.resolve("test1"), new byte[] { (byte) 0, (byte) 1 });
-        Thread.sleep(500);
+        Thread.sleep(1_000);
 
         final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
         Assert.assertNull(this.requestQueue.poll());
@@ -213,11 +213,11 @@ public class DirectoryUploaderWithServerTest {
         final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, null, 0, 1, getBaseUrl(), "user0", "test uploader", new MemoryStore());
         final Future<?> future = this.executor.submit(uploader);
         // トークン取得待ち
-        Thread.sleep(500);
+        Thread.sleep(1_000);
 
         Files.write(this.targetDirectory.resolve("test0"), new byte[] { (byte) 0 });
         Files.write(this.targetDirectory.resolve("test1"), new byte[] { (byte) 0, (byte) 1 });
-        Thread.sleep(500);
+        Thread.sleep(1_000);
 
         final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
         Assert.assertNull(this.requestQueue.poll());
