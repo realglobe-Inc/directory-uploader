@@ -1,15 +1,20 @@
 package jp.realglobe.util.uploader;
 
-import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.http.HttpException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
@@ -26,20 +31,16 @@ public class DirectoryUploader implements Runnable {
 
     private static final Logger LOG = Logger.getLogger(DirectoryUploader.class.getName());
 
-    private static final int BUFFER_SIZE = 4096;
+    static final int BUFFER_SIZE = 4096;
 
-    private static final String PART_KEY_TOKEN = "token";
-    private static final String PART_KEY_DATA = "image";
-
-    private static final String URL_PATH_TOKEN = "/cameras";
-    private static final String URL_PATH_UPLOAD_PREFIX = "/cameras";
-    private static final String URL_PATH_UPLOAD_SUFFIX = "/photos";
-
-    private static final String DATA_KEY_ID = "id";
-    private static final String DATA_KEY_TOKEN = "token";
-
-    // 投稿するデータが置かれるディレクトリ
+    // 監視するディレクトリ
     private final Path watchDirectoryPath;
+    // アップロード対象の拡張子
+    private final Set<String> targetExtensions;
+    // アップロード対象の最小ファイルサイズ
+    private final long minSize;
+    // アップロード対象の最大ファイルサイズ
+    private final long maxSize;
     // 紐付くユーザーの ID
     private final String userId;
     // 自身の ID
@@ -56,6 +57,33 @@ public class DirectoryUploader implements Runnable {
     /**
      * 作成する
      * @param watchDirectoryPath 監視するディレクトリのパス
+     * @param targetExtensions アップロード対象の拡張子
+     * @param minSize アップロード対象の最小ファイルサイズ
+     * @param maxSize アップロード対象の最大ファイルサイズ
+     * @param urlBase アップロード先サーバーの URL
+     * @param userId 紐付くユーザーの ID
+     * @param name 表示名
+     * @param store 運用データの保管庫
+     * @throws Exception データ読み書きエラー
+     */
+    public DirectoryUploader(final Path watchDirectoryPath, final Collection<String> targetExtensions, final long minSize, final long maxSize, final String urlBase, final String userId, final String name, final Store store) throws Exception {
+        this.watchDirectoryPath = watchDirectoryPath;
+        this.targetExtensions = (targetExtensions == null ? Collections.emptySet() : new HashSet<>(targetExtensions));
+        this.minSize = minSize;
+        this.maxSize = maxSize;
+        this.userId = userId;
+        this.id = getId(store);
+        this.name = name;
+        this.tokenUrl = (new URL(urlBase + Constants.URL_PATH_TOKEN)).toURI();
+        this.uploadUrl = (new URL(urlBase + Constants.URL_PATH_UPLOAD_PREFIX + "/" + this.id + Constants.URL_PATH_UPLOAD_SUFFIX)).toURI();
+        this.store = store;
+
+        LOG.info("ID is " + this.id);
+    }
+
+    /**
+     * アップロード対象のファイルに制限を付けずに作成する
+     * @param watchDirectoryPath 監視するディレクトリのパス
      * @param urlBase アップロード先サーバーの URL
      * @param userId 紐付くユーザーの ID
      * @param name 表示名
@@ -63,15 +91,11 @@ public class DirectoryUploader implements Runnable {
      * @throws Exception データ読み書きエラー
      */
     public DirectoryUploader(final Path watchDirectoryPath, final String urlBase, final String userId, final String name, final Store store) throws Exception {
-        this.watchDirectoryPath = watchDirectoryPath;
-        this.userId = userId;
-        this.id = getId(store);
-        this.name = name;
-        this.tokenUrl = (new URL(urlBase + URL_PATH_TOKEN)).toURI();
-        this.uploadUrl = (new URL(urlBase + URL_PATH_UPLOAD_PREFIX + "/" + this.id + URL_PATH_UPLOAD_SUFFIX)).toURI();
-        this.store = store;
+        this(watchDirectoryPath, Collections.emptyList(), 0, 0, urlBase, userId, name, store);
+    }
 
-        LOG.info("ID is " + this.id);
+    String getId() {
+        return this.id;
     }
 
     /**
@@ -81,12 +105,12 @@ public class DirectoryUploader implements Runnable {
      * @throws Exception データ読み書きエラー
      */
     private static String getId(final Store store) throws Exception {
-        final String loadedId = store.load(DATA_KEY_ID);
+        final String loadedId = store.load(Constants.STORE_KEY_ID);
         if (loadedId != null) {
             return loadedId;
         }
         final String newId = UUID.randomUUID().toString();
-        store.store(DATA_KEY_ID, newId);
+        store.store(Constants.STORE_KEY_ID, newId);
         return newId;
     }
 
@@ -105,6 +129,21 @@ public class DirectoryUploader implements Runnable {
         LOG.info("Use token " + token);
 
         (new Watcher(this.watchDirectoryPath, path -> {
+            if (!Files.isReadable(path)) {
+                LOG.info("Cannot read " + path);
+                return;
+            }
+            final File file = path.toFile();
+            if (!this.targetExtensions.isEmpty() && !this.targetExtensions.contains(FilenameUtils.getExtension(file.getName()))) {
+                LOG.info("Skip non target file " + path);
+                return;
+            } else if (this.minSize > 0 && file.length() < this.minSize) {
+                LOG.info("Skip too small file " + path);
+                return;
+            } else if (this.maxSize > 0 && file.length() > this.maxSize) {
+                LOG.info("Skip too large file " + path);
+                return;
+            }
             upload(token, path);
         })).run();
     }
@@ -116,18 +155,18 @@ public class DirectoryUploader implements Runnable {
      * @throws Exception データ読み書きエラー
      */
     private String getToken() throws Exception {
-        final String localToken = this.store.load(DATA_KEY_TOKEN);
+        final String localToken = this.store.load(Constants.STORE_KEY_TOKEN);
         if (localToken != null) {
             if (isValidToken(localToken)) {
                 return localToken;
             }
-            this.store.clear(DATA_KEY_TOKEN);
+            this.store.clear(Constants.STORE_KEY_TOKEN);
         }
         final String token = getRemoteToken();
         if (token == null) {
             throw new RuntimeException("Cannot get token");
         }
-        this.store.store(DATA_KEY_TOKEN, token);
+        this.store.store(Constants.STORE_KEY_TOKEN, token);
         return token;
     }
 
@@ -155,7 +194,7 @@ public class DirectoryUploader implements Runnable {
 
             try (CloseableHttpResponse response = client.execute(post)) {
                 if (response.getStatusLine().getStatusCode() == HttpURLConnection.HTTP_CREATED) {
-                    return TokenResponseBody.parse(readAll(response.getEntity().getContent())).getToken();
+                    return TokenResponseBody.parse(Utils.readAll(response.getEntity().getContent())).getToken();
                 }
 
                 LOG.warning(response.toString());
@@ -178,8 +217,8 @@ public class DirectoryUploader implements Runnable {
             final HttpPost post = new HttpPost(this.uploadUrl);
             post.setEntity(MultipartEntityBuilder.create()
                     .addTextBody("info", "{}")
-                    .addTextBody(PART_KEY_TOKEN, token)
-                    .addBinaryBody(PART_KEY_DATA, path.toFile())
+                    .addTextBody(Constants.UPLOAD_REQUEST_PART_TOKEN, token)
+                    .addBinaryBody(Constants.UPLOAD_REQUEST_PART_DATA, path.toFile())
                     .build());
 
             LOG.info("Upload " + path);
@@ -192,25 +231,6 @@ public class DirectoryUploader implements Runnable {
                 LOG.warning(response.toString());
             }
         }
-    }
-
-    /**
-     * 全部読む
-     * @param inputStream 入力
-     * @return 読んだバイト列
-     * @throws IOException 読み込みエラー
-     */
-    private byte[] readAll(final InputStream inputStream) throws IOException {
-        final ByteArrayOutputStream output = new ByteArrayOutputStream();
-        final byte[] buff = new byte[BUFFER_SIZE];
-        while (true) {
-            final int length = inputStream.read(buff);
-            if (length < 0) {
-                break;
-            }
-            output.write(buff, 0, length);
-        }
-        return output.toByteArray();
     }
 
     /**
