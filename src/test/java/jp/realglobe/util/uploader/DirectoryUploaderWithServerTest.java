@@ -214,6 +214,8 @@ public class DirectoryUploaderWithServerTest {
     @Test
     public void testMaximumLimitation() throws Exception {
         final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, null, 0, 1, getBaseUrl(), "user0", "test uploader", new MemoryStore());
+        uploader.prepareToken();
+
         final Future<?> future = this.executor.submit(uploader);
         // トークン取得待ち
         Thread.sleep(1_000);
