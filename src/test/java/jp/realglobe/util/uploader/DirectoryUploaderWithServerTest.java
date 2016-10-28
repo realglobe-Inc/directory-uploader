@@ -118,7 +118,7 @@ public class DirectoryUploaderWithServerTest {
             exchange.getResponseBody().write((new JSONObject(data)).toString().getBytes());
         } else if (path.startsWith(Constants.URL_PATH_UPLOAD_PREFIX) && path.substring(Constants.URL_PATH_UPLOAD_PREFIX.length()).endsWith(Constants.URL_PATH_UPLOAD_SUFFIX)) {
             System.out.println("DEBUG3: " + path);
-            this.requestQueue.offer(new HttpRequest(exchange));
+            System.out.println("DEBUG4: " + this.requestQueue.offer(new HttpRequest(exchange)));
             exchange.sendResponseHeaders(HttpURLConnection.HTTP_CREATED, 0);
         }
         exchange.close();
@@ -224,7 +224,9 @@ public class DirectoryUploaderWithServerTest {
         Files.write(this.targetDirectory.resolve("test1"), new byte[] { (byte) 0, (byte) 1 });
         Thread.sleep(1_000);
 
+        System.out.println("DEBUG5: ");
         final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
+        System.out.println("DEBUG6: ");
         Assert.assertNull(this.requestQueue.poll());
         if (!future.cancel(true)) {
             future.get();
