@@ -104,7 +104,11 @@ public class DirectoryUploaderWithServerTest {
 
     private void handle(final HttpExchange exchange) throws IOException {
         final String path = exchange.getRequestURI().getPath();
+
+        System.out.println("DEBUG1: " + path);
+
         if (path.equals(Constants.URL_PATH_TOKEN)) {
+            System.out.println("DEBUG2: " + path);
             final Map<String, Object> tokenData = new HashMap<>();
             tokenData.put(Constants.TOKEN_RESPONSE_KEY_TOKEN, "abcde");
             final Map<String, Object> data = new HashMap<>();
@@ -113,6 +117,7 @@ public class DirectoryUploaderWithServerTest {
             exchange.sendResponseHeaders(HttpURLConnection.HTTP_CREATED, 0);
             exchange.getResponseBody().write((new JSONObject(data)).toString().getBytes());
         } else if (path.startsWith(Constants.URL_PATH_UPLOAD_PREFIX) && path.substring(Constants.URL_PATH_UPLOAD_PREFIX.length()).endsWith(Constants.URL_PATH_UPLOAD_SUFFIX)) {
+            System.out.println("DEBUG3: " + path);
             this.requestQueue.offer(new HttpRequest(exchange));
             exchange.sendResponseHeaders(HttpURLConnection.HTTP_CREATED, 0);
         }
