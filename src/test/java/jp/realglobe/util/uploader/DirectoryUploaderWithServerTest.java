@@ -5,6 +5,7 @@ import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -13,6 +14,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.io.FileUtils;
 import org.json.JSONObject;
@@ -104,10 +106,7 @@ public class DirectoryUploaderWithServerTest {
     private void handle(final HttpExchange exchange) throws IOException {
         final String path = exchange.getRequestURI().getPath();
 
-        System.out.println("DEBUG1: " + path);
-
         if (path.equals(Constants.URL_PATH_TOKEN)) {
-            System.out.println("DEBUG2: " + path);
             final Map<String, Object> tokenData = new HashMap<>();
             tokenData.put(Constants.TOKEN_RESPONSE_KEY_TOKEN, "abcde");
             final Map<String, Object> data = new HashMap<>();
@@ -116,8 +115,7 @@ public class DirectoryUploaderWithServerTest {
             exchange.sendResponseHeaders(HttpURLConnection.HTTP_CREATED, 0);
             exchange.getResponseBody().write((new JSONObject(data)).toString().getBytes());
         } else if (path.startsWith(Constants.URL_PATH_UPLOAD_PREFIX) && path.substring(Constants.URL_PATH_UPLOAD_PREFIX.length()).endsWith(Constants.URL_PATH_UPLOAD_SUFFIX)) {
-            System.out.println("DEBUG3: " + path);
-            System.out.println("DEBUG4: " + this.requestQueue.offer(new HttpRequest(exchange)));
+            this.requestQueue.offer(new HttpRequest(exchange));
             exchange.sendResponseHeaders(HttpURLConnection.HTTP_CREATED, 0);
         }
         exchange.close();
@@ -143,69 +141,78 @@ public class DirectoryUploaderWithServerTest {
         return "http://localhost:" + this.server.getAddress().getPort();
     }
 
-    // /**
-    // * アップロードテスト
-    // * @throws Exception エラー
-    // */
-    // @Test
-    // public void testUpload() throws Exception {
-    // final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, null, 0, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
-    // final Future<?> future = this.executor.submit(uploader);
-    // // トークン取得待ち
-    // Thread.sleep(1_000);
-    //
-    // Files.write(this.targetDirectory.resolve("test"), new byte[] { (byte) 0 });
-    // final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
-    // if (!future.cancel(true)) {
-    // future.get();
-    // }
-    // Assert.assertEquals(Constants.URL_PATH_UPLOAD_PREFIX + "/" + uploader.getId() + Constants.URL_PATH_UPLOAD_SUFFIX, request.getPath());
-    // }
-    //
-    // /**
-    // * 拡張子制限テスト
-    // * @throws Exception エラー
-    // */
-    // @Test
-    // public void testExtensionRestriction() throws Exception {
-    // final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, Arrays.asList("jpg"), 0, 0, getBaseUrl(), "user0", "test uploader", new
-    // MemoryStore());
-    // final Future<?> future = this.executor.submit(uploader);
-    // // トークン取得待ち
-    // Thread.sleep(1_000);
-    //
-    // Files.write(this.targetDirectory.resolve("test.png"), new byte[] { (byte) 0 });
-    // Files.write(this.targetDirectory.resolve("test.jpg"), new byte[] { (byte) 0 });
-    //
-    // final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
-    // Assert.assertNull(this.requestQueue.poll());
-    // if (!future.cancel(true)) {
-    // future.get();
-    // }
-    // Assert.assertEquals(Constants.URL_PATH_UPLOAD_PREFIX + "/" + uploader.getId() + Constants.URL_PATH_UPLOAD_SUFFIX, request.getPath());
-    // }
-    //
-    // /**
-    // * 最小サイズ制限テスト
-    // * @throws Exception エラー
-    // */
-    // @Test
-    // public void testMinimumLimitation() throws Exception {
-    // final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, null, 2, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
-    // final Future<?> future = this.executor.submit(uploader);
-    // // トークン取得待ち
-    // Thread.sleep(1_000);
-    //
-    // Files.write(this.targetDirectory.resolve("test0"), new byte[] { (byte) 0 });
-    // Files.write(this.targetDirectory.resolve("test1"), new byte[] { (byte) 0, (byte) 1 });
-    //
-    // final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
-    // Assert.assertNull(this.requestQueue.poll());
-    // if (!future.cancel(true)) {
-    // future.get();
-    // }
-    // Assert.assertEquals(Constants.URL_PATH_UPLOAD_PREFIX + "/" + uploader.getId() + Constants.URL_PATH_UPLOAD_SUFFIX, request.getPath());
-    // }
+    /**
+     * アップロードテスト
+     * @throws Exception エラー
+     */
+    @Test
+    public void testUpload() throws Exception {
+        final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, null, 0, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
+        uploader.prepareToken();
+        final Future<?> future = this.executor.submit(uploader);
+        // 監視開始待ち
+        Thread.sleep(1_000);
+
+        Files.write(this.targetDirectory.resolve("test"), new byte[] { (byte) 0 });
+        final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
+        try {
+            future.get(0, TimeUnit.MILLISECONDS);
+        } catch (final TimeoutException e) {
+            // 異常停止してない
+        }
+        Assert.assertEquals(Constants.URL_PATH_UPLOAD_PREFIX + "/" + uploader.getId() + Constants.URL_PATH_UPLOAD_SUFFIX, request.getPath());
+    }
+
+    /**
+     * 拡張子制限テスト
+     * @throws Exception エラー
+     */
+    @Test
+    public void testExtensionRestriction() throws Exception {
+        final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, Arrays.asList("jpg"), 0, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
+        uploader.prepareToken();
+        final Future<?> future = this.executor.submit(uploader);
+        // 監視開始待ち
+        Thread.sleep(1_000);
+
+        Files.write(this.targetDirectory.resolve("test.png"), new byte[] { (byte) 0 });
+        Files.write(this.targetDirectory.resolve("test.jpg"), new byte[] { (byte) 0 });
+
+        final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
+        Assert.assertNull(this.requestQueue.poll());
+        try {
+            future.get(0, TimeUnit.MILLISECONDS);
+        } catch (final TimeoutException e) {
+            // 異常停止してない
+        }
+        Assert.assertEquals(Constants.URL_PATH_UPLOAD_PREFIX + "/" + uploader.getId() + Constants.URL_PATH_UPLOAD_SUFFIX, request.getPath());
+    }
+
+    /**
+     * 最小サイズ制限テスト
+     * @throws Exception エラー
+     */
+    @Test
+    public void testMinimumLimitation() throws Exception {
+        final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, null, 2, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
+        uploader.prepareToken();
+        final Future<?> future = this.executor.submit(uploader);
+        // 監視開始待ち
+        Thread.sleep(1_000);
+
+        Files.write(this.targetDirectory.resolve("test0"), new byte[] { (byte) 0 });
+        Files.write(this.targetDirectory.resolve("test1"), new byte[] { (byte) 0, (byte) 1 });
+
+        final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
+        Assert.assertNull(this.requestQueue.poll());
+        Assert.assertNull(this.requestQueue.poll());
+        try {
+            future.get(0, TimeUnit.MILLISECONDS);
+        } catch (final TimeoutException e) {
+            // 異常停止してない
+        }
+        Assert.assertEquals(Constants.URL_PATH_UPLOAD_PREFIX + "/" + uploader.getId() + Constants.URL_PATH_UPLOAD_SUFFIX, request.getPath());
+    }
 
     /**
      * 最大サイズ制限テスト
@@ -215,20 +222,19 @@ public class DirectoryUploaderWithServerTest {
     public void testMaximumLimitation() throws Exception {
         final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, null, 0, 1, getBaseUrl(), "user0", "test uploader", new MemoryStore());
         uploader.prepareToken();
-
         final Future<?> future = this.executor.submit(uploader);
-        // トークン取得待ち
+        // 監視開始待ち
         Thread.sleep(1_000);
 
         Files.write(this.targetDirectory.resolve("test0"), new byte[] { (byte) 0 });
         Files.write(this.targetDirectory.resolve("test1"), new byte[] { (byte) 0, (byte) 1 });
 
-        System.out.println("DEBUG5: ");
         final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
-        System.out.println("DEBUG6: ");
         Assert.assertNull(this.requestQueue.poll());
-        if (!future.cancel(true)) {
-            future.get();
+        try {
+            future.get(0, TimeUnit.MILLISECONDS);
+        } catch (final TimeoutException e) {
+            // 異常停止してない
         }
         Assert.assertEquals(Constants.URL_PATH_UPLOAD_PREFIX + "/" + uploader.getId() + Constants.URL_PATH_UPLOAD_SUFFIX, request.getPath());
     }
