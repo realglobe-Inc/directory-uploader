@@ -7,9 +7,11 @@ import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
@@ -29,13 +31,22 @@ final class DelayedWatcher implements Runnable {
 
     private final Path target;
     private final long delay;
+    private final boolean latestOnly;
     private final DelayedWatcher.Callback callback;
 
     private final History history;
 
-    DelayedWatcher(final Path target, final long delay, final DelayedWatcher.Callback callback) {
+    /**
+     * 作成する
+     * @param target 監視するディレクトリ
+     * @param delay 実際に報告するまでの時間（ミリ秒）
+     * @param latestOnly そのとき最新の報告以外は飛ばす
+     * @param callback 報告を受け取る関数
+     */
+    DelayedWatcher(final Path target, final long delay, final boolean latestOnly, final DelayedWatcher.Callback callback) {
         this.target = target;
         this.delay = delay;
+        this.latestOnly = latestOnly;
         this.callback = callback;
 
         this.history = new History();
@@ -94,12 +105,13 @@ final class DelayedWatcher implements Runnable {
                 }
 
                 // 時期の来たイベントを処理
-                while (true) {
-                    final Path name = this.history.popOlder(current - this.delay);
-                    if (name == null) {
-                        break;
-                    }
-
+                final List<Path> names = this.history.popOlders(current - this.delay);
+                if (this.latestOnly && !names.isEmpty()) {
+                    final Path latest = names.get(names.size() - 1);
+                    names.clear();
+                    names.add(latest);
+                }
+                for (final Path name : names) {
                     final Path path = this.target.resolve(name);
                     LOG.fine("Call callback for " + path);
                     try {
@@ -159,20 +171,23 @@ final class DelayedWatcher implements Runnable {
         /**
          * より古いパスを返す
          * @param date 基準日時
-         * @return 基準日時より古いパス。
-         *         無ければ null
+         * @return 基準日時より古いパス
          */
-        public Path popOlder(final long date) {
-            trim();
-            final Pair<Long, Path> oldest = this.dateToPathQueue.peek();
-            if (oldest == null) {
-                return null;
-            } else if (oldest.getFirst() >= date) {
-                return null;
+        public List<Path> popOlders(final long date) {
+            final List<Path> paths = new ArrayList<>();
+            while (true) {
+                trim();
+                final Pair<Long, Path> oldest = this.dateToPathQueue.peek();
+                if (oldest == null) {
+                    break;
+                } else if (oldest.getFirst() >= date) {
+                    break;
+                }
+                this.dateToPathQueue.poll();
+                this.pathToLastDate.remove(oldest.getSecond());
+                paths.add(oldest.getSecond());
             }
-            this.dateToPathQueue.poll();
-            this.pathToLastDate.remove(oldest.getSecond());
-            return oldest.getSecond();
+            return paths;
         }
 
         /**
