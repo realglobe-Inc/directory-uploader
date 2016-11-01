@@ -147,14 +147,15 @@ public class DirectoryUploaderWithServerTest {
      */
     @Test
     public void testUpload() throws Exception {
-        final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, null, 0, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
+        final long delay = 1_000L;
+        final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, delay, false, null, 0, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
         uploader.prepareToken();
         final Future<?> future = this.executor.submit(uploader);
         // 監視開始待ち
-        Thread.sleep(1_000);
+        Thread.sleep(1_000L);
 
         Files.write(this.targetDirectory.resolve("test"), new byte[] { (byte) 0 });
-        final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
+        final HttpRequest request = this.requestQueue.poll(1_000L + delay, TimeUnit.MILLISECONDS);
         try {
             future.get(0, TimeUnit.MILLISECONDS);
         } catch (final TimeoutException e) {
@@ -169,16 +170,17 @@ public class DirectoryUploaderWithServerTest {
      */
     @Test
     public void testExtensionRestriction() throws Exception {
-        final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, Arrays.asList("jpg"), 0, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
+        final long delay = 1_000L;
+        final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, delay, false, Arrays.asList("jpg"), 0, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
         uploader.prepareToken();
         final Future<?> future = this.executor.submit(uploader);
         // 監視開始待ち
-        Thread.sleep(1_000);
+        Thread.sleep(1_000L);
 
         Files.write(this.targetDirectory.resolve("test.png"), new byte[] { (byte) 0 });
         Files.write(this.targetDirectory.resolve("test.jpg"), new byte[] { (byte) 0 });
 
-        final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
+        final HttpRequest request = this.requestQueue.poll(1_000L + delay, TimeUnit.MILLISECONDS);
         Assert.assertNull(this.requestQueue.poll());
         try {
             future.get(0, TimeUnit.MILLISECONDS);
@@ -194,16 +196,17 @@ public class DirectoryUploaderWithServerTest {
      */
     @Test
     public void testMinimumLimitation() throws Exception {
-        final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, null, 2, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
+        final long delay = 1_000L;
+        final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, delay, false, null, 2, 0, getBaseUrl(), "user0", "test uploader", new MemoryStore());
         uploader.prepareToken();
         final Future<?> future = this.executor.submit(uploader);
         // 監視開始待ち
-        Thread.sleep(1_000);
+        Thread.sleep(1_000L);
 
         Files.write(this.targetDirectory.resolve("test0"), new byte[] { (byte) 0 });
         Files.write(this.targetDirectory.resolve("test1"), new byte[] { (byte) 0, (byte) 1 });
 
-        final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
+        final HttpRequest request = this.requestQueue.poll(1_000L + delay, TimeUnit.MILLISECONDS);
         Assert.assertNull(this.requestQueue.poll());
         Assert.assertNull(this.requestQueue.poll());
         try {
@@ -220,16 +223,17 @@ public class DirectoryUploaderWithServerTest {
      */
     @Test
     public void testMaximumLimitation() throws Exception {
-        final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, null, 0, 1, getBaseUrl(), "user0", "test uploader", new MemoryStore());
+        final long delay = 1_000L;
+        final DirectoryUploader uploader = new DirectoryUploader(this.targetDirectory, delay, false, null, 0, 1, getBaseUrl(), "user0", "test uploader", new MemoryStore());
         uploader.prepareToken();
         final Future<?> future = this.executor.submit(uploader);
         // 監視開始待ち
-        Thread.sleep(1_000);
+        Thread.sleep(1_000L);
 
         Files.write(this.targetDirectory.resolve("test0"), new byte[] { (byte) 0 });
         Files.write(this.targetDirectory.resolve("test1"), new byte[] { (byte) 0, (byte) 1 });
 
-        final HttpRequest request = this.requestQueue.poll(10, TimeUnit.SECONDS);
+        final HttpRequest request = this.requestQueue.poll(1_000L + delay, TimeUnit.MILLISECONDS);
         Assert.assertNull(this.requestQueue.poll());
         try {
             future.get(0, TimeUnit.MILLISECONDS);

@@ -37,6 +37,8 @@ public class DirectoryUploader implements Runnable {
     private final Path watchDirectoryPath;
     // 検知の猶予期間
     private final long delay;
+    // 処理落ちしたファイルをスキップするか
+    private final boolean latestOnly;
     // アップロード対象の拡張子
     private final Set<String> targetExtensions;
     // アップロード対象の最小ファイルサイズ
@@ -61,6 +63,7 @@ public class DirectoryUploader implements Runnable {
      * @param watchDirectoryPath 監視するディレクトリのパス
      * @param delay ファイルの変更からアップロードまでの猶予期間（ミリ秒）。
      *            細かい更新に対して毎回アップロードを行わないため
+     * @param latestOnly 処理落ち中に検知したファイルをスキップするか
      * @param targetExtensions アップロード対象の拡張子
      * @param minSize アップロード対象の最小ファイルサイズ（バイト）
      * @param maxSize アップロード対象の最大ファイルサイズ（バイト）
@@ -70,10 +73,11 @@ public class DirectoryUploader implements Runnable {
      * @param store 運用データの保管庫
      * @throws Exception データ読み書きエラー
      */
-    public DirectoryUploader(final Path watchDirectoryPath, final long delay, final Collection<String> targetExtensions, final long minSize, final long maxSize,
+    public DirectoryUploader(final Path watchDirectoryPath, final long delay, final boolean latestOnly, final Collection<String> targetExtensions, final long minSize, final long maxSize,
             final String urlBase, final String userId, final String name, final Store store) throws Exception {
         this.watchDirectoryPath = watchDirectoryPath;
         this.delay = delay;
+        this.latestOnly = latestOnly;
         this.targetExtensions = (targetExtensions == null ? Collections.emptySet() : new HashSet<>(targetExtensions));
         this.minSize = minSize;
         this.maxSize = maxSize;
@@ -85,36 +89,6 @@ public class DirectoryUploader implements Runnable {
         this.store = store;
 
         LOG.info("ID is " + this.id);
-    }
-
-    /**
-     * 作成する
-     * @param watchDirectoryPath 監視するディレクトリのパス
-     * @param targetExtensions アップロード対象の拡張子
-     * @param minSize アップロード対象の最小ファイルサイズ（バイト）
-     * @param maxSize アップロード対象の最大ファイルサイズ（バイト）
-     * @param urlBase アップロード先サーバーの URL
-     * @param userId 紐付くユーザーの ID
-     * @param name 表示名
-     * @param store 運用データの保管庫
-     * @throws Exception データ読み書きエラー
-     */
-    public DirectoryUploader(final Path watchDirectoryPath, final Collection<String> targetExtensions, final long minSize, final long maxSize,
-            final String urlBase, final String userId, final String name, final Store store) throws Exception {
-        this(watchDirectoryPath, 1_000L, targetExtensions, minSize, maxSize, urlBase, userId, name, store);
-    }
-
-    /**
-     * アップロード対象のファイルに制限を付けずに作成する
-     * @param watchDirectoryPath 監視するディレクトリのパス
-     * @param urlBase アップロード先サーバーの URL
-     * @param userId 紐付くユーザーの ID
-     * @param name 表示名
-     * @param store 運用データの保管庫
-     * @throws Exception データ読み書きエラー
-     */
-    public DirectoryUploader(final Path watchDirectoryPath, final String urlBase, final String userId, final String name, final Store store) throws Exception {
-        this(watchDirectoryPath, Collections.emptyList(), 0, 0, urlBase, userId, name, store);
     }
 
     String getId() {
@@ -151,7 +125,7 @@ public class DirectoryUploader implements Runnable {
 
         LOG.info("Use token " + token);
 
-        (new DelayedWatcher(this.watchDirectoryPath, this.delay, path -> {
+        (new DelayedWatcher(this.watchDirectoryPath, this.delay, this.latestOnly, path -> {
             if (!Files.isReadable(path)) {
                 LOG.info("Cannot read " + path);
                 return;
