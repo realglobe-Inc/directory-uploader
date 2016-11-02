@@ -3,7 +3,9 @@ package jp.realglobe.util.uploader;
 import java.io.File;
 import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -74,10 +76,11 @@ public class DirectoryUploader implements Runnable {
      * @param name 表示名
      * @param id 自身の ID
      * @param token 認証トークン
-     * @throws Exception データ読み書きエラー
+     * @throws URISyntaxException URL がおかしい
+     * @throws MalformedURLException URL があやしい
      */
     public DirectoryUploader(final Path watchDirectoryPath, final long delay, final boolean latestOnly, final Collection<String> targetExtensions, final long minSize, final long maxSize,
-            final String urlBase, final String userId, final String name, final String id, final String token) throws Exception {
+            final String urlBase, final String userId, final String name, final String id, final String token) throws MalformedURLException, URISyntaxException {
         this.watchDirectoryPath = watchDirectoryPath;
         this.delay = delay;
         this.latestOnly = latestOnly;
