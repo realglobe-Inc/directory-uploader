@@ -2,6 +2,8 @@
 
 ディレクトリを監視してアップロードする。
 
+https://realglobe-inc.github.io/javadoc/jp/realglobe/directory-uploader/
+
 
 ## コンパイル
 
