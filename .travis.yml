@@ -5,11 +5,18 @@ cache:
   directories:
     - .autoconf
     - $HOME/.m2
-install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V --settings .travis-settings.xml
-script: mvn test -B --settings .travis-settings.xml
+before_install:
+  - mkdir -p $HOME/.m2
+  - cp example/settings-bintray.xml $HOME/.m2/settings.xml
+install:
+  - mvn install -DskipTests=true -B -V
+before_deploy:
+  - curl -s https://raw.githubusercontent.com/realglobe-Inc/travis-deploy-scripts/master/maven-generate-bintray-descriptor.sh | sh
 deploy:
-  provider: script
-  script: ./.travis-deploy.sh
-  skip_cleanup: true
-  on:
-    branch: master
+  provider: bintray
+  file: bintray.json
+  user: realglobe
+  key:
+    secure: gqSssoLSZTGw/Q4XZ6wpxK2eawuqbUzZRX6QKj6ftrQilA5Clcc5nHui+x6SGcrEq9R8FMtVa1x0eFo3Uobunu6vniH/Tl+FSGNgs4GRebkcZFarwmeMyZviFzK4eGx42/EWGyYad0tuLpbCH9wKO2UIYnDI3zJ0RVWwHgtX5v9JHkwdtq47SJxtSFKAJo6NQZHvt3dZaqGPamFOfC8pfdBrGD3uY7So2cq7EavUloS4M92R2FWh8qmM+yXhRpMAvjCh+2ENDHT3YqbOk7oaiflANDn51AfQPU6o+Cz5u0p93Jhm6ZBOn1oCMo3wI5MSYG4B3fiv6uiMjjRz1lMqr79BLSFN700rw/TBixEN3FSjvmxmfBATUDJwu0SDhLNCSNmwDI7kuoG9FIzlr/fx0Apl3nonlLCQNSKOCV87YTRpkFMrZTkqdwFk+4DJgwTR/DgiDolfQ3QRgB6XNU2ADaMaObTdkNaNGWYliqRvU/BlVi0EbaKGk8/XWi4dCKcq2YWa2HWpreL4rr1r2jBTE3PoYXO+aUzMsl3eakNy574GFwP7HgkAYDrXVzed+hGAJtzl3T3NBnsaxOX45xtaoTpG7TPIM2mhT5Y/l+AriYqr3adqvVNWezVbBje/6G5sJqG71XijXs0+T15hCb3C9WG/8u2hmRGfRAb4rlq2YoY=
+after_deploy:
+  - curl -s https://raw.githubusercontent.com/realglobe-Inc/travis-deploy-scripts/master/maven-deploy-javadoc.sh | sh
