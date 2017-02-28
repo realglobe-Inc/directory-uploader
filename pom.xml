@@ -25,7 +25,7 @@
   <version>2.1.0</version>
 
   <name>Directory uploader</name>
-  <description>ディレクトリを監視して作成・変更されたファイルをアップロードする</description>
+  <description>Monitor a directory and upload created/modified files</description>
   <url>https://github.com/realglobe-Inc/directory-uploader</url>
 
   <licenses>
